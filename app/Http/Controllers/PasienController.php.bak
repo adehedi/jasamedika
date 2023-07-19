@@ -1,0 +1,223 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Pasien;
+use App\Models\Kelurahan;
+use Illuminate\Auth\Events\Validated;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Response;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
+use SimpleSoftwareIO\QrCode\Facades\QrCode;
+use Yajra\DataTables\Facades\DataTables;
+
+class PasienController extends Controller
+{
+    public function index()
+    {
+		$kelurahanCmb = Kelurahan::orderBy('village_district', 'asc')->get()->pluck('village_district', 'id');
+		
+        return view('pasien.index', ['kelurahanCmb' => $kelurahanCmb]);
+    }
+	
+	public function kelurahan($id)
+    {	
+        return response()->json(Kelurahan::where('id' , '=' , $id )->get());
+	}
+
+    public function getPasien(Request $request)
+    {
+        if ($request->ajax()) {
+            $data = Pasien::latest()->get();
+			
+            return DataTables::of($data)
+                ->addIndexColumn()
+				/* ->addColumn('kelurahans', function (Kelurahan $kelurahan) {
+                    return $kelurahan->kelurahans->village_district;
+                }) */
+                ->addColumn('action', function ($row) {
+                    $actionBtn = '<a href="javascript:void(0)" id="btn-edit-pasien" data-id="'.$row->id.'" class="edit btn btn-warning btn-sm">Edit</a> 
+                    <a href="javascript:void(0)" id="btn-delete-pasien" data-id="'.$row->id.'" class="delete btn btn-danger btn-sm">Delete</a>
+                    ';
+                    return $actionBtn;
+                })
+                ->rawColumns(['action'])
+                ->make(true);
+        }
+    }
+
+    public function store(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'name' => 'string|max:255',
+            'gender' => 'string|max:1',
+            'address' => 'string|max:255',
+            'rtrw' => 'string|max:255',
+            'province' => 'string|max:255',
+            'city' => 'string|max:255',
+            'subdistrict' => 'string|max:255',
+            'village_district' => 'string|max:255',
+            'village_district_id' => 'string|max:255',
+            'phone' => 'string|max:255',
+            'postal_code' => 'string|max:5',
+        ]);
+
+        //check if validation fails
+        if ($validator->fails()) {
+            return response()->json($validator->errors(), 422);
+        }
+		
+    
+		$uniqueCode = date('y') . '' . date('m') . '' . substr( ( 1000000 + 1 ), 1);
+		$lastId = Pasien::orderBy('id', 'desc')->first()->id;
+		
+		echo $lastId;exit;
+
+        // Insert Data
+        $pasien = Pasien::create([
+            'name' => $request->name,
+            'code' => $request->code,
+            'gender' => $request->gender,
+            'phone' => $request->phone,
+            'address' => $request->address,
+            'rtrw' => $request->rtrw,
+            'province' => $request->province,
+            'city' => $request->city,
+            'subdistrict' => $request->subdistrict,
+            'village_district' => $request->village_district,
+            'village_district_id' => $request->village_district_id,
+            'postal_code' => $request->postal_code,
+        ]);
+
+        // Save qr code
+        /* if ($pasien) {
+            $qrCode = base64_encode(QrCode::format('png')->generate($request->barcode_code));
+            $imageData = base64_decode($qrCode);
+            file_put_contents(public_path('uploads/qrcode/' . Str::slug($pasien->building_name, '_') .'_'. Str::slug($location->check_point_name, '_') . '.png') , $imageData);
+            $pasien->barcode_code = $request->barcode_code;
+        } */
+
+        //return response
+        return response()->json([
+            'success' => true,
+            'message' => 'Data Berhasil Disimpan!'
+        ]);
+    }
+
+    public function edit($id)
+    {
+        $user = Pasien::find($id);
+        //return response
+        return response()->json([
+            'success' => true,
+            'message' => 'Detail Data User',
+            'data'    => $user
+        ]);
+    }
+
+    public function update(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'name' => 'string|max:255',
+            'gender' => 'string|max:1',
+            'address' => 'string|max:255',
+            'rtrw' => 'string|max:255',
+            'province' => 'string|max:255',
+            'city' => 'string|max:255',
+            'subdistrict' => 'string|max:255',
+            'village_district' => 'string|max:255',
+            'village_district_id' => 'string|max:255',
+            'phone' => 'string|max:255',
+            'postal_code' => 'string|max:5',
+        ]);
+
+        //check if validation fails
+        if ($validator->fails()) {
+            return response()->json($validator->errors(), 422);
+        }
+
+        // find pasien data
+        $pasien = Pasien::find($request->pasien_id);
+		
+        // Update pasien
+        $pasien->name = $request->name;
+        $pasien->code = $request->code;
+        $pasien->gender = $request->gender;
+        $pasien->phone = $request->phone;
+        $pasien->address = $request->address;
+        $pasien->rtrw = $request->rtrw;
+        $pasien->province = $request->province;
+        $pasien->city = $request->city;
+        $pasien->subdistrict = $request->subdistrict;
+        $pasien->village_district = $request->village_district;
+        $pasien->village_district_id = $request->village_district_id;
+        $pasien->postal_code = $request->postal_code;
+
+        /* if ($pasien->barcode_code !== $request->barcode_code) {
+            // Delete existing qr code
+            $oldQrcode = 'uploads/qrcode/' . Str::slug($pasien->building_name, '_') .'_'. Str::slug($pasien->check_point_name, '_') . '.png';
+            if (Storage::exists($oldQrcode)) {
+                Storage::delete($oldQrcode);
+            }
+
+            // Reupload new qrcode
+            $qrCode = base64_encode(QrCode::format('png')->generate($request->barcode_code));
+            $imageData = base64_decode($qrCode);
+            file_put_contents(public_path('uploads/qrcode/' . Str::slug($pasien->building_name, '_') .'_'. Str::slug($location->check_point_name, '_') . '.png') , $imageData);
+            $pasien->barcode_code = $request->barcode_code;
+        } */
+
+        // Save data
+        $pasien->save();
+
+        // Response
+        return response()->json([
+            'success' => true,
+            'message' => 'Data Berhasil Diupdate!',
+        ]);
+    }
+
+    public function destroy($id)
+    {
+        Pasien::where('id', $id)->delete();
+
+        //return response
+        return response()->json([
+            'success' => true,
+            'message' => 'Data Berhasil Dihapus!.',
+        ]);
+    }
+
+    public function getQrCode(Request $request)
+    {
+        // Testing
+        // $qrCode = QrCode::format('png')->generate($request);
+        $qrCode = '<img src="data:image/png;base64,{{ base64_encode(QrCode::format("png")->generate("Wow")) }}" alt="">';
+        
+        return response()->json([
+            'success' => true,
+            'message' => 'Data Berhasil Dihapus!.',
+            'data' => $qrCode
+        ]);
+    }
+
+    public function downloadQr($id)
+    {
+        $pasien = Pasien::find($id);
+
+        $qrCodePath = public_path('uploads/qrcode/' . Str::slug($pasien->building_name, '_') .'_'. Str::slug($pasien->check_point_name, '_') . '.png');
+
+        if (file_exists($qrCodePath)) {
+            return Response::download($qrCodePath, Str::slug($pasien->building_name, '_') .'_'. Str::slug($pasien->check_point_name, '_') . '.png', [
+                'Content-Type' => 'image/png',
+            ]);
+        } else {
+            return response()->json([
+                'success' => true,
+                'message' => 'QR Code tidak ada!.',
+            ]);
+        }
+    }
+}

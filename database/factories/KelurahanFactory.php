@@ -1,0 +1,27 @@
+<?php
+
+namespace Database\Factories;
+
+use Illuminate\Database\Eloquent\Factories\Factory;
+
+/**
+ * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\Kelurahan>
+ */
+class KelurahanFactory extends Factory
+{
+    /**
+     * Define the model's default state.
+     *
+     * @return array<string, mixed>
+     */
+    public function definition()
+    {
+       return [
+            'province' => fake()->name(),
+            'city' => fake()->name(),
+            'subdistrict' => fake()->name(),
+            'village_district' => fake()->name(),
+			'postal_code' => random_int(10000,99999)
+        ];
+    }
+}
