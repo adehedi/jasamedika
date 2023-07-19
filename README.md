@@ -14,3 +14,5 @@ pass : 12345678
 user : 
 email : user@gmail.com
 pass : 1234567
+
+Environment dapat menggunakan evn.example
